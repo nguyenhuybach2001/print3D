@@ -1,51 +1,540 @@
 import { getDashboardData } from "@/lib/dashboard";
+import { connection } from "next/server";
+import { ExcelImport } from "@/components/excel-import";
+import { Suspense } from "react";
+import Link from "next/link";
+import { cookies } from "next/headers";
+import { LoginGate } from "@/components/login-gate";
+import { LogoutButton } from "@/components/logout-button";
+import { sessionCookieName, verifySession } from "@/lib/session";
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  ListOrdered,
+  Box,
+  SlidersHorizontal,
+  Printer,
+  Cpu,
+  PackageCheck,
+  ArrowLeftRight,
+  Store,
+  Settings,
+  Receipt,
+  BarChart3,
+  Calendar,
+  ChevronRight,
+  TrendingUp,
+  CircleDollarSign,
+  Clock,
+  Boxes,
+  ArrowUpRight,
+  AlertTriangle,
+  CheckCircle2,
+  HelpCircle,
+  ChevronDown,
+} from "lucide-react";
 
 const currency = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 });
 const number = new Intl.NumberFormat("vi-VN");
 
-function Icon({ name }: { name: string }) {
-  const paths: Record<string, string> = {
-    search: "M11 19a8 8 0 1 1 5.66-2.34L21 21m-5-5 5 5", bell: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9m-8 12h4", plus: "M12 5v14m-7-7h14", arrow: "M5 12h14m-7-7 7 7-7 7", down: "m7 10 5 5 5-5", printer: "M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2m-12-4h12v8H6z", dots: "M5 12h.01M12 12h.01M19 12h.01",
-  };
-  return <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d={paths[name] ?? "M5 12h14"} /></svg>;
+export default function Home() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-indigo-600 font-medium">Đang tải dữ liệu B3D Lab…</div>}>
+      <DashboardContent />
+    </Suspense>
+  );
 }
 
-export default async function Home() {
+async function DashboardContent() {
+  await connection();
+  const cookieStore = await cookies();
+  if (!verifySession(cookieStore.get(sessionCookieName())?.value)) return <LoginGate />;
+
   const { configured, error, orders, materials, totals } = await getDashboardData();
   const monthLabel = new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(new Date());
   const today = new Intl.DateTimeFormat("vi-VN", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
+
+  const destinations: Record<string, string> = {
+    "Tổng quan": "/",
+    "Đơn hàng": "/manage/orders",
+    "Chi tiết đơn": "/manage/order_items",
+    "Sản phẩm": "/manage/products",
+    "Cấu hình in": "/manage/print_profiles",
+    "Máy in": "/manage/machines",
+    "Sản xuất": "/manage/production_batches",
+    "Kho vật liệu": "/manage/materials",
+    "Giao dịch kho": "/manage/inventory_transactions",
+    "Kênh bán": "/manage/sales_channels",
+    "Cấu hình chung": "/manage/settings",
+    "Chi phí": "/manage/expenses",
+    "Báo cáo": "/manage/reports",
+  };
+
   const navGroups = [
-    { label: "TỔNG QUAN", items: [{ icon: "⌂", name: "Tổng quan", active: true }] },
-    { label: "VẬN HÀNH", items: [{ icon: "▧", name: "Đơn hàng", count: String(totals.pendingOrders) }, { icon: "◇", name: "Sản phẩm" }, { icon: "◉", name: "Sản xuất" }, { icon: "▤", name: "Kho vật liệu", alert: materials.some((item) => item.quantity <= item.low_stock_threshold) }] },
-    { label: "TÀI CHÍNH", items: [{ icon: "◈", name: "Tính giá thành" }, { icon: "↗", name: "Báo cáo" }] },
+    {
+      label: "TỔNG QUAN",
+      items: [{ name: "Tổng quan", icon: LayoutDashboard }],
+    },
+    {
+      label: "VẬN HÀNH & SẢN XUẤT",
+      items: [
+        { name: "Đơn hàng", icon: ShoppingBag, count: totals.pendingOrders > 0 ? String(totals.pendingOrders) : undefined },
+        { name: "Chi tiết đơn", icon: ListOrdered },
+        { name: "Sản phẩm", icon: Box },
+        { name: "Cấu hình in", icon: SlidersHorizontal },
+        { name: "Máy in", icon: Printer },
+        { name: "Sản xuất", icon: Cpu },
+        { name: "Kho vật liệu", icon: PackageCheck, alert: materials.some((item) => item.quantity <= item.low_stock_threshold) },
+        { name: "Giao dịch kho", icon: ArrowLeftRight },
+      ],
+    },
+    {
+      label: "TÀI CHÍNH & BÁO CÁO",
+      items: [
+        { name: "Kênh bán", icon: Store },
+        { name: "Cấu hình chung", icon: Settings },
+        { name: "Chi phí", icon: Receipt },
+        { name: "Báo cáo", icon: BarChart3 },
+      ],
+    },
   ];
 
-  return <div className="app-shell">
-    <aside className="sidebar">
-      <a className="brand" href="#top" aria-label="B3D Lab, trang chủ"><span className="brand-mark"><span/><span/><span/></span><span className="brand-copy"><strong>B3D Lab</strong><small>PRINT STUDIO</small></span></a>
-      <button className="workspace-switch"><span className="workspace-avatar">B</span><span><strong>B3D Lab</strong><small>Xưởng in 3D</small></span><Icon name="down"/></button>
-      <nav className="side-nav" aria-label="Điều hướng chính">{navGroups.map((group) => <div className="nav-group" key={group.label}><p className="nav-label">{group.label}</p>{group.items.map((item) => <a key={item.name} className={`nav-item ${"active" in item && item.active ? "selected" : ""}`} href="#"><span className="nav-icon">{item.icon}</span><span>{item.name}</span>{"count" in item && Number(item.count) > 0 && <span className="nav-count">{item.count}</span>}{"alert" in item && item.alert && <i className="nav-alert"/>}</a>)}</div>)}</nav>
-      <div className="sidebar-bottom"><div className="help-card"><span className="help-icon">✳</span><strong>Cần một chút trợ giúp?</strong><p>Xem hướng dẫn để bắt đầu quản lý xưởng.</p><a href="#">Khám phá hướng dẫn <span>↗</span></a></div><a className="nav-item settings-link" href="#"><span className="nav-icon">⚙</span><span>Cài đặt</span></a><div className="profile"><span className="profile-avatar">B</span><span><strong>B3D Lab</strong><small>Quản trị viên</small></span><span className="profile-more">···</span></div></div>
-    </aside>
-    <main className="main-area" id="top">
-      <header className="topbar"><div className="breadcrumbs">B3D Lab <span>/</span> <strong>Tổng quan</strong></div><div className="top-actions"><button className="icon-button search-button" aria-label="Tìm kiếm"><Icon name="search"/></button><button className="icon-button notification-button" aria-label="Thông báo"><Icon name="bell"/></button><span className="top-divider"/><div className="today-label"><span className="today-dot"/> {today}</div></div></header>
-      <div className="content-wrap">
-        <section className="welcome-row"><div><div className="eyebrow"><span/> BẢNG ĐIỀU KHIỂN</div><h1>Tổng quan xưởng in <span className="wave">✳</span></h1><p className="welcome-sub">Số liệu thực tế từ dữ liệu B3D Lab.</p></div><a className="primary-button" href="#orders"><Icon name="plus"/> Xem đơn hàng</a></section>
-        {error && <div className="connection-notice" role="status"><strong>{configured ? "Chưa đọc được dữ liệu Supabase" : "Kết nối Supabase để bắt đầu"}</strong><span>{error}</span></div>}
-        <section className="stats-grid" aria-label="Chỉ số kinh doanh">
-          <article className="stat-card"><div className="stat-top"><span>Doanh thu tháng này</span><span className="stat-icon lavender">↗</span></div><div className="stat-value">{currency.format(totals.revenue)}</div><div className="stat-foot"><span>{monthLabel}</span></div></article>
-          <article className="stat-card"><div className="stat-top"><span>Lợi nhuận gộp tháng này</span><span className="stat-icon mint">⌁</span></div><div className="stat-value">{currency.format(totals.profit)}</div><div className="stat-foot"><span>{totals.revenue ? `Biên lợi nhuận ${number.format(Math.round(totals.profit / totals.revenue * 100))}%` : "Chưa có dữ liệu đơn hàng"}</span></div></article>
-          <article className="stat-card"><div className="stat-top"><span>Đơn cần xử lý</span><span className="stat-icon peach">▧</span></div><div className="stat-value">{number.format(totals.pendingOrders)}<span className="stat-unit">đơn hàng</span></div><div className="stat-foot"><span>Đang chờ xác nhận hoặc hoàn tất</span></div></article>
-          <article className="stat-card"><div className="stat-top"><span>Sản phẩm trong kho</span><span className="stat-icon sky"><Icon name="printer"/></span></div><div className="stat-value">{number.format(totals.inventoryUnits)}<span className="stat-unit">sản phẩm</span></div><div className="stat-foot"><span>{number.format(materials.length)} loại vật liệu đang theo dõi</span></div></article>
-        </section>
-        <section className="middle-grid">
-          <article className="panel revenue-panel"><div className="panel-heading"><div><h2>Hoạt động gần đây</h2><p>Đơn hàng mới nhất từ cơ sở dữ liệu</p></div><span className="select-button">Tháng này</span></div><div className="empty-activity"><span className="empty-icon">↗</span><strong>{configured ? "Chưa có hoạt động trong tháng này" : "Chưa có dữ liệu để hiển thị"}</strong><p>{configured ? "Các đơn hàng mới sẽ xuất hiện ở đây." : "Thêm cấu hình Supabase để dashboard đọc dữ liệu của bạn."}</p></div></article>
-          <article className="panel printer-panel"><div className="panel-heading"><div><h2>Thiết bị sản xuất</h2><p>Máy in đã khai báo trong hệ thống</p></div><button className="more-button" aria-label="Thêm tùy chọn"><Icon name="dots"/></button></div><div className="printer-empty"><div className="printer-visual"><div className="printer-light"/><div className="printer-top-line"/><div className="printer-door"><span className="door-reflection"/></div><div className="printer-base"><span/><span/><span/></div></div><div><strong>Bambu Lab P1S</strong><p>Thêm máy in vào mục <a href="#">Thiết bị</a> để theo dõi sản xuất.</p><span className="offline-status"><i/> Chưa kết nối</span></div></div><div className="printer-footer"><span>Trạng thái dựa trên dữ liệu đã lưu</span></div></article>
-        </section>
-        <section className="bottom-grid"><article className="panel orders-panel" id="orders"><div className="panel-heading"><div><h2>Đơn hàng gần đây <span className="heading-count">{orders.length}</span></h2><p>Đơn hàng được lưu trong Supabase</p></div><a className="text-link" href="#orders">Tải lại trang <Icon name="arrow"/></a></div>{orders.length ? <div className="table-scroll"><table><thead><tr><th>MÃ ĐƠN</th><th>KÊNH BÁN</th><th>NGÀY ĐẶT</th><th>GIÁ TRỊ</th><th>TRẠNG THÁI</th></tr></thead><tbody>{orders.map((order) => <tr key={order.id}><td className="order-id">{order.order_number}</td><td className="product-cell">{order.channel}</td><td>{new Intl.DateTimeFormat("vi-VN", { day: "numeric", month: "short" }).format(new Date(order.ordered_at))}</td><td className="amount-cell">{currency.format(order.total_amount)}</td><td><span className={`status ${order.status === "completed" ? "green" : order.status === "cancelled" ? "gray" : "amber"}`}><i/>{order.status}</span></td></tr>)}</tbody></table></div> : <div className="compact-empty">{configured ? "Chưa có đơn hàng. Hãy thêm đơn đầu tiên vào bảng orders." : "Kết nối Supabase để xem đơn hàng của B3D Lab."}</div>}</article>
-          <article className="panel materials-panel"><div className="panel-heading"><div><h2>Kho vật liệu <span className="warning-count">{materials.filter((item) => item.quantity <= item.low_stock_threshold).length}</span></h2><p>Tồn kho được đọc trực tiếp từ Supabase</p></div><a className="text-link" href="#materials">Vật liệu <Icon name="arrow"/></a></div>{materials.length ? <div className="material-list" id="materials">{materials.map((material) => <div className="material-row" key={material.id}><span className={`spool-icon ${material.quantity <= material.low_stock_threshold ? "pink" : "green"}`}><i/></span><div className="material-detail"><div className="material-title"><strong>{material.name}</strong><span>{material.brand ?? "Vật liệu"}</span></div><div className="material-progress"><span className={material.quantity <= material.low_stock_threshold ? "pink" : "green"} style={{ width: `${Math.min(100, material.low_stock_threshold ? material.quantity / (material.low_stock_threshold * 3) * 100 : 100)}%` }}/></div></div><div className="material-amount"><strong>{number.format(material.quantity)} g</strong><span>{material.quantity <= material.low_stock_threshold ? "sắp hết" : "còn lại"}</span></div></div>)}</div> : <div className="compact-empty">{configured ? "Chưa có vật liệu trong kho." : "Kết nối Supabase để xem tồn kho."}</div>}</article></section>
-        <footer className="page-footer"><span>© {new Date().getFullYear()} B3D Lab</span><span><i/> {configured ? "Dữ liệu tải trực tiếp từ Supabase" : "Chưa kết nối cơ sở dữ liệu"}</span><a href="#">Quản lý xưởng in 3D</a></footer>
-      </div>
-    </main>
-  </div>;
+  const profitMargin = totals.revenue > 0 ? Math.round((totals.profit / totals.revenue) * 100) : 0;
+  const lowStockCount = materials.filter((item) => item.quantity <= item.low_stock_threshold).length;
+
+  return (
+    <div className="app-shell">
+      {/* SIDEBAR */}
+      <aside className="sidebar">
+        <Link className="brand" href="/" aria-label="B3D Lab Trang chủ">
+          <div className="brand-mark">
+            <Printer className="w-5 h-5 text-white" />
+          </div>
+          <div className="brand-copy">
+            <strong>B3D Lab</strong>
+            <small>PRINT STUDIO</small>
+          </div>
+        </Link>
+
+        <div className="workspace-switch">
+          <div className="workspace-avatar">B</div>
+          <div className="workspace-info">
+            <strong>B3D Studio</strong>
+            <small>
+              <span className="status-dot-active" /> Xưởng in hoạt động
+            </small>
+          </div>
+          <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+        </div>
+
+        <nav className="side-nav" aria-label="Điều hướng chính">
+          {navGroups.map((group) => (
+            <div className="nav-group" key={group.label}>
+              <p className="nav-label">{group.label}</p>
+              {group.items.map((item) => {
+                const IconComponent = item.icon;
+                const isSelected = item.name === "Tổng quan";
+                return (
+                  <Link
+                    key={item.name}
+                    className={`nav-item ${isSelected ? "selected" : ""}`}
+                    href={destinations[item.name] ?? "#"}
+                  >
+                    <span className="nav-icon">
+                      <IconComponent className="w-4 h-4" />
+                    </span>
+                    <span>{item.name}</span>
+                    {item.count && <span className="nav-count">{item.count}</span>}
+                    {item.alert && <span className="nav-alert-dot" title="Có vật liệu sắp hết" />}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+
+        <div className="sidebar-bottom">
+          <div className="help-card">
+            <div className="help-card-header">
+              <HelpCircle className="w-4 h-4 text-indigo-600" />
+              <span>Hướng dẫn & Thiết lập</span>
+            </div>
+            <p>Tùy chỉnh thông số điện, chi phí công và bảng giá kênh bán.</p>
+            <Link href="/manage/settings">
+              <span>Cấu hình chung</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          <div className="profile-card">
+            <div className="profile-avatar">AD</div>
+            <div className="profile-info">
+              <strong>Admin B3D</strong>
+              <small>Quản trị xưởng in</small>
+            </div>
+            <LogoutButton />
+          </div>
+        </div>
+      </aside>
+
+      {/* MAIN CONTENT AREA */}
+      <main className="main-area">
+        {/* TOPBAR */}
+        <header className="topbar">
+          <div className="breadcrumbs">
+            <span>B3D Lab</span>
+            <span>/</span>
+            <strong>Tổng quan</strong>
+          </div>
+
+          <div className="top-actions">
+            <div className="date-badge">
+              <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+              <span>{today}</span>
+            </div>
+            <div className="top-divider" />
+            <ExcelImport />
+          </div>
+        </header>
+
+        {/* CONTENT WRAPPER */}
+        <div className="content-wrap">
+          {/* WELCOME ROW */}
+          <section className="welcome-row">
+            <div className="welcome-info">
+              <div className="eyebrow">
+                <span className="eyebrow-dot" /> BẢNG ĐIỀU KHIỂN XƯỞNG IN
+              </div>
+              <h1>Tổng quan hoạt động sản xuất</h1>
+              <p className="welcome-sub">
+                Theo dõi số liệu thực tế, tiến độ đơn hàng và lượng nhựa tiêu thụ trong xưởng.
+              </p>
+            </div>
+
+            <div className="welcome-actions">
+              <Link className="primary-button" href="/manage/orders">
+                <ShoppingBag className="w-4 h-4" />
+                <span>Quản lý đơn hàng</span>
+              </Link>
+            </div>
+          </section>
+
+          {/* CONNECTION NOTICE IF ANY */}
+          {error && (
+            <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-sm flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <strong className="block font-semibold">
+                  {configured ? "Lỗi truy vấn cơ sở dữ liệu Supabase" : "Chưa kết nối Supabase"}
+                </strong>
+                <p className="mt-1 text-xs text-amber-700 leading-relaxed">{error}</p>
+              </div>
+            </div>
+          )}
+
+          {/* 4 STATS METRICS CARDS */}
+          <section className="stats-grid" aria-label="Chỉ số vận hành">
+            <article className="stat-card">
+              <div className="stat-top">
+                <span className="stat-title">Doanh thu tháng này</span>
+                <div className="stat-icon emerald">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="stat-value">{currency.format(totals.revenue)}</div>
+              <div className="stat-foot">
+                <span>{monthLabel}</span>
+                <span className="trend-badge green">
+                  <CheckCircle2 className="w-3 h-3" /> Hoạt động
+                </span>
+              </div>
+            </article>
+
+            <article className="stat-card">
+              <div className="stat-top">
+                <span className="stat-title">Lợi nhuận gộp theo đơn</span>
+                <div className="stat-icon indigo">
+                  <CircleDollarSign className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="stat-value">{currency.format(totals.profit)}</div>
+              <div className="stat-foot">
+                <span>{totals.revenue > 0 ? `Biên lợi nhuận ${profitMargin}%` : "Chưa phát sinh chi phí"}</span>
+                {totals.revenue > 0 && <span className="trend-badge blue">{profitMargin}%</span>}
+              </div>
+            </article>
+
+            <article className="stat-card">
+              <div className="stat-top">
+                <span className="stat-title">Đơn hàng cần xử lý</span>
+                <div className="stat-icon amber">
+                  <Clock className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="stat-value">
+                {number.format(totals.pendingOrders)}
+                <span className="stat-unit">đơn hàng</span>
+              </div>
+              <div className="stat-foot">
+                <span>Đang chờ in, đóng gói hoặc giao</span>
+                {totals.pendingOrders > 0 && (
+                  <span className="text-amber-600 font-semibold text-xs">{totals.pendingOrders} đơn chờ</span>
+                )}
+              </div>
+            </article>
+
+            <article className="stat-card">
+              <div className="stat-top">
+                <span className="stat-title">Vật liệu & Tồn kho</span>
+                <div className="stat-icon cyan">
+                  <Boxes className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="stat-value">
+                {number.format(totals.inventoryUnits)}
+                <span className="stat-unit">gam / đơn vị</span>
+              </div>
+              <div className="stat-foot">
+                <span>{materials.length} cuộn vật liệu theo dõi</span>
+                {lowStockCount > 0 ? (
+                  <span className="text-red-500 font-semibold text-xs flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" /> {lowStockCount} sắp hết
+                  </span>
+                ) : (
+                  <span className="trend-badge green">Đầy đủ</span>
+                )}
+              </div>
+            </article>
+          </section>
+
+          {/* RECENT ACTIVITY */}
+          <section className="middle-grid">
+            {/* PANEL: RECENT ACTIVITY */}
+            <article className="panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>Hoạt động gần đây</h2>
+                  <p>Nhật ký đơn hàng và sản xuất mới nhất</p>
+                </div>
+                <Link className="text-link" href="/manage/orders">
+                  <span>Xem tất cả</span>
+                  <ArrowUpRight className="w-4 h-4" />
+                </Link>
+              </div>
+
+              {orders.length > 0 ? (
+                <div className="space-y-3">
+                  {orders.slice(0, 4).map((order) => (
+                    <div
+                      key={order.id}
+                      className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">
+                          {order.channel.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-slate-800 text-sm">
+                            Đơn hàng <span className="font-mono text-indigo-600">{order.order_number}</span>
+                          </div>
+                          <div className="text-xs text-slate-400">
+                            {new Intl.DateTimeFormat("vi-VN", {
+                              day: "numeric",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }).format(new Date(order.ordered_at))}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-semibold text-sm text-slate-900">{currency.format(order.total_amount)}</div>
+                        <span className={`status-pill ${order.status === "completed" ? "status-completed" : "status-pending"}`}>
+                          <span className="pulse-dot" />
+                          {order.status === "completed" ? "Hoàn thành" : "Chờ xử lý"}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state-box">
+                  <div className="empty-icon-circle">
+                    <ArrowUpRight className="w-5 h-5 text-indigo-500" />
+                  </div>
+                  <h3>Chưa có hoạt động trong tháng này</h3>
+                  <p>Các đơn hàng mới hoặc lịch in sẽ được tự động hiển thị tại đây khi có dữ liệu.</p>
+                </div>
+              )}
+            </article>
+
+          </section>
+
+          {/* BOTTOM GRID: ORDERS TABLE & MATERIALS INVENTORY */}
+          <section className="bottom-grid">
+            {/* ORDERS TABLE */}
+            <article className="panel" id="orders">
+              <div className="panel-heading">
+                <div>
+                  <h2>
+                    Đơn hàng gần đây
+                    <span className="heading-badge">{orders.length}</span>
+                  </h2>
+                  <p>Danh sách các đơn hàng mới nhất trên hệ thống</p>
+                </div>
+                <Link className="text-link" href="/manage/orders">
+                  <span>Xem chi tiết</span>
+                  <ArrowUpRight className="w-4 h-4" />
+                </Link>
+              </div>
+
+              {orders.length > 0 ? (
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>MÃ ĐƠN</th>
+                        <th>KÊNH BÁN</th>
+                        <th>NGÀY ĐẶT</th>
+                        <th>TỔNG TIỀN</th>
+                        <th>TRẠNG THÁI</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders.map((order) => {
+                        const channelLower = (order.channel || "").toLowerCase();
+                        let channelClass = "channel-direct";
+                        if (channelLower.includes("shopee")) channelClass = "channel-shopee";
+                        else if (channelLower.includes("tiktok")) channelClass = "channel-tiktok";
+                        else if (channelLower.includes("lazada")) channelClass = "channel-lazada";
+
+                        return (
+                          <tr key={order.id}>
+                            <td>
+                              <span className="order-code">{order.order_number}</span>
+                            </td>
+                            <td>
+                              <span className={`channel-pill ${channelClass}`}>{order.channel}</span>
+                            </td>
+                            <td className="text-slate-500 text-xs">
+                              {new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit" }).format(
+                                new Date(order.ordered_at)
+                              )}
+                            </td>
+                            <td className="font-semibold text-slate-900 font-mono text-sm">
+                              {currency.format(order.total_amount)}
+                            </td>
+                            <td>
+                              <span
+                                className={`status-pill ${
+                                  order.status === "completed"
+                                    ? "status-completed"
+                                    : order.status === "cancelled"
+                                    ? "status-cancelled"
+                                    : "status-pending"
+                                }`}
+                              >
+                                <span className="pulse-dot" />
+                                {order.status === "completed"
+                                  ? "Đã giao"
+                                  : order.status === "cancelled"
+                                  ? "Đã hủy"
+                                  : "Chờ xử lý"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="empty-state-box">
+                  <div className="empty-icon-circle">
+                    <ShoppingBag className="w-5 h-5 text-indigo-500" />
+                  </div>
+                  <h3>Chưa có đơn hàng nào</h3>
+                  <p>Hãy bấm &quot;Nhập Excel&quot; hoặc thêm đơn hàng đầu tiên trong mục Quản lý đơn.</p>
+                </div>
+              )}
+            </article>
+
+            {/* MATERIALS INVENTORY */}
+            <article className="panel" id="materials">
+              <div className="panel-heading">
+                <div>
+                  <h2>
+                    Kho vật liệu
+                    {lowStockCount > 0 && <span className="heading-badge warn">{lowStockCount} sắp hết</span>}
+                  </h2>
+                  <p>Theo dõi tồn lượng nhựa in 3D</p>
+                </div>
+                <Link className="text-link" href="/manage/materials">
+                  <span>Kho vật tư</span>
+                  <ArrowUpRight className="w-4 h-4" />
+                </Link>
+              </div>
+
+              {materials.length > 0 ? (
+                <div className="material-list">
+                  {materials.map((material) => {
+                    const isLow = material.quantity <= material.low_stock_threshold;
+                    const percent = Math.min(
+                      100,
+                      material.low_stock_threshold
+                        ? Math.round((material.quantity / (material.low_stock_threshold * 3)) * 100)
+                        : 100
+                    );
+
+                    return (
+                      <div className="material-card" key={material.id}>
+                        <div className={`material-spool-icon ${isLow ? "low" : ""}`}>
+                          <PackageCheck className="w-5 h-5" />
+                        </div>
+                        <div className="material-info">
+                          <div className="material-title-row">
+                            <strong>{material.name}</strong>
+                            <span>{material.brand ?? "Filament"}</span>
+                          </div>
+                          <div className="material-progress-track">
+                            <div
+                              className={`material-progress-bar ${isLow ? "low" : ""}`}
+                              style={{ width: `${percent}%` }}
+                            />
+                          </div>
+                        </div>
+                        <div className="material-weight">
+                          <strong>{number.format(material.quantity)} g</strong>
+                          <small className={isLow ? "text-red-500 font-semibold" : "text-slate-400"}>
+                            {isLow ? "Sắp hết" : "Đủ dùng"}
+                          </small>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="empty-state-box">
+                  <div className="empty-icon-circle">
+                    <PackageCheck className="w-5 h-5 text-indigo-500" />
+                  </div>
+                  <h3>Chưa có vật liệu trong kho</h3>
+                  <p>Thêm danh sách cuộn nhựa PLA, PETG, TPU để theo dõi trọng lượng tự động.</p>
+                </div>
+              )}
+            </article>
+          </section>
+
+          {/* PAGE FOOTER */}
+          <footer className="page-footer">
+            <span>© {new Date().getFullYear()} B3D Lab · Print Studio</span>
+            <div className="flex items-center gap-2">
+              <span className={`status-dot-active ${configured ? "" : "!bg-amber-500"}`} />
+              <span>{configured ? "Kết nối Supabase trực tiếp (REST v1)" : "Chưa cấu hình Supabase"}</span>
+            </div>
+          </footer>
+        </div>
+      </main>
+    </div>
+  );
 }

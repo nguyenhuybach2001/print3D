@@ -17,10 +17,13 @@ export const metadata: Metadata = {
   description: "Dashboard quản lý đơn hàng, sản xuất, vật liệu và lợi nhuận của B3D Lab.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full">{children}</body>
+    <html lang="vi" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+      <body suppressHydrationWarning className="min-h-full font-sans bg-slate-50 text-slate-900 selection:bg-indigo-500 selection:text-white">
+        {children}
+      </body>
     </html>
   );
 }
+

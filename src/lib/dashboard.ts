@@ -4,7 +4,7 @@ type Order = { id: string; order_number: string; channel: string; ordered_at: st
 type Material = { id: string; name: string; brand: string | null; quantity: number; low_stock_threshold: number };
 
 const baseUrl = process.env.SUPABASE_URL;
-const apiKey = process.env.SUPABASE_ANON_KEY;
+const apiKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 async function selectRows<T>(table: string, query: string): Promise<T[]> {
   const response = await fetch(`${baseUrl}/rest/v1/${table}?${query}`, {
@@ -17,21 +17,21 @@ async function selectRows<T>(table: string, query: string): Promise<T[]> {
 
 export async function getDashboardData() {
   const empty = { orders: [] as Order[], materials: [] as Material[], totals: { revenue: 0, profit: 0, pendingOrders: 0, inventoryUnits: 0 } };
-  if (!baseUrl || !apiKey) return { ...empty, configured: false, error: "Hãy thêm SUPABASE_URL và SUPABASE_ANON_KEY vào file .env.local theo hướng dẫn README." };
+  if (!baseUrl || !apiKey) return { ...empty, configured: false, error: "Hãy thêm SUPABASE_URL và SUPABASE_SERVICE_ROLE_KEY vào file .env.local theo hướng dẫn README." };
 
   try {
     const monthStart = new Date();
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
     const [orders, materials] = await Promise.all([
-      selectRows<Order>("orders", "select=id,order_number,channel,ordered_at,total_amount,status,profit&order=ordered_at.desc&limit=8"),
+      selectRows<Order>("orders", "select=id,order_number,channel,ordered_at,total_amount,status,profit&order=ordered_at.desc&limit=1000"),
       selectRows<Material>("materials", "select=id,name,brand,quantity,low_stock_threshold&order=name.asc"),
     ]);
     const monthlyOrders = orders.filter((order) => new Date(order.ordered_at) >= monthStart && order.status !== "cancelled");
     return {
       configured: true,
       error: null,
-      orders,
+      orders: orders.slice(0, 8),
       materials,
       totals: {
         revenue: monthlyOrders.reduce((sum, order) => sum + Number(order.total_amount || 0), 0),
